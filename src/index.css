@@ -1,0 +1,681 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap');
+
+@font-face {
+  font-family: 'CelebMF';
+  src: url('./font/Masterfont - Celeb MF Medium.otf') format('opentype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'CelebMFLight';
+  src: url('./font/Masterfont - Celeb MF Light.otf') format('opentype');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-system: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  --font-display: "Space Grotesk", "Inter", -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", "SFMono-Regular", "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+
+  --surface: #0d0d1c;
+  --surface-container-low: #111127;
+  --surface-container-high: #1b1b40;
+  --surface-variant: rgba(32, 32, 77, 0.7);
+  --surface-tint: #a8c8ff;
+  --primary: #a8c8ff;
+  --primary-container: #6f8fcb;
+  --secondary: #72ac6f;
+  --secondary-container: rgba(114, 172, 111, 0.18);
+  --outline: rgba(67, 67, 114, 0.28);
+  --outline-variant: rgba(67, 67, 114, 0.15);
+
+  --bg-primary: var(--surface);
+  --bg-secondary: var(--surface-container-low);
+  --bg-elevated: var(--surface-container-high);
+  --bg-input: rgba(27, 27, 64, 0.88);
+  --bg-sidebar: var(--surface-container-low);
+  --bg-main: var(--surface);
+  --bg-card: var(--surface-container-high);
+  --bg-component: rgba(27, 27, 64, 0.72);
+  --bg-toggle-switch: rgba(67, 67, 114, 0.4);
+  --bg-item-surface: rgba(27, 27, 64, 0.72);
+  --bg-item-active: rgba(168, 200, 255, 0.16);
+
+  --text-primary: rgba(245, 247, 255, 0.96);
+  --text-secondary: rgba(201, 209, 235, 0.8);
+  --text-tertiary: rgba(145, 153, 188, 0.68);
+  --text-accent: var(--primary);
+
+  --border-subtle: transparent;
+  --border-muted: var(--outline-variant);
+
+  --accent-primary: var(--primary);
+  --accent-muted: rgba(168, 200, 255, 0.14);
+  --accent-live: var(--secondary);
+
+  --overlay-bg: rgba(24, 27, 34, 0.84);
+  --overlay-opacity: 0.78;
+  --overlay-border: rgba(255, 255, 255, 0.11);
+  --overlay-border-soft: rgba(255, 255, 255, 0.07);
+  --overlay-panel-bg: rgba(24, 27, 34, 0.84);
+  --overlay-pill-bg: rgba(27, 30, 37, 0.8);
+  --overlay-transcript-bg: rgba(15, 18, 26, 0.34);
+  --overlay-chip-bg: rgba(50, 56, 66, 0.76);
+  --overlay-chip-hover-bg: rgba(60, 66, 77, 0.84);
+  --overlay-input-bg: rgba(44, 49, 60, 0.86);
+  --overlay-input-hover-bg: rgba(49, 55, 66, 0.91);
+  --overlay-input-focus-bg: rgba(47, 57, 81, 0.94);
+  --overlay-control-bg: rgba(47, 52, 62, 0.82);
+  --overlay-control-hover-bg: rgba(57, 63, 74, 0.89);
+  --overlay-code-bg: rgba(32, 37, 46, 0.9);
+  --overlay-code-border: rgba(255, 255, 255, 0.09);
+  --overlay-code-header-bg: rgba(43, 48, 58, 0.9);
+  --overlay-inline-code-bg: rgba(168, 200, 255, 0.15);
+  --overlay-icon-bg: rgba(50, 56, 66, 0.78);
+  --overlay-icon-hover-bg: rgba(60, 66, 77, 0.86);
+  --overlay-panel-shadow: rgba(0, 0, 0, 0.2);
+  --overlay-pill-shadow: rgba(0, 0, 0, 0.15);
+  --overlay-text-primary: rgba(245, 247, 255, 0.98);
+  --overlay-text-secondary: rgba(221, 227, 243, 0.9);
+  --overlay-text-muted: rgba(186, 194, 217, 0.8);
+  --overlay-text-placeholder: rgba(186, 194, 217, 0.64);
+  --overlay-text-strong: #ffffff;
+  --overlay-shell-blur: 17px;
+  --overlay-pill-blur: 11px;
+  --overlay-transcript-blur: 8px;
+
+  /* ─── Semantic state tokens ─────────────────────────────────────────────
+     Use these instead of raw red/emerald/amber/blue Tailwind colors.
+     Each state has a solid foreground, a subtle background, and a border tint.
+     ──────────────────────────────────────────────────────────────────────── */
+  --state-success: #22c55e;
+  --state-success-strong: #16a34a;
+  --state-success-bg: rgba(34, 197, 94, 0.14);
+  --state-success-border: rgba(34, 197, 94, 0.32);
+
+  --state-warning: #f59e0b;
+  --state-warning-strong: #d97706;
+  --state-warning-bg: rgba(245, 158, 11, 0.14);
+  --state-warning-border: rgba(245, 158, 11, 0.32);
+
+  --state-danger: #ef4444;
+  --state-danger-strong: #dc2626;
+  --state-danger-bg: rgba(239, 68, 68, 0.14);
+  --state-danger-border: rgba(239, 68, 68, 0.32);
+
+  --state-info: var(--primary);
+  --state-info-bg: var(--accent-muted);
+  --state-info-border: rgba(168, 200, 255, 0.32);
+
+  /* ─── Layered z-index scale (replaces magic numbers like z-[49] / z-[2000]) */
+  --z-base: 0;
+  --z-raised: 10;
+  --z-sticky: 200;
+  --z-dropdown: 1000;
+  --z-overlay: 1500;
+  --z-modal: 2000;
+  --z-toast: 3000;
+  --z-tooltip: 4000;
+  --z-titlebar: 9999;
+
+  /* ─── Motion duration scale */
+  --motion-instant: 80ms;
+  --motion-fast: 120ms;
+  --motion-base: 200ms;
+  --motion-slow: 320ms;
+  --motion-pageshift: 480ms;
+
+  /* ─── Border radius scale (semantic, not size-named) */
+  --radius-input: 0.5rem;
+  --radius-card: 0.75rem;
+  --radius-modal: 1rem;
+  --radius-pill: 9999px;
+}
+
+[data-theme='light'] {
+  color-scheme: light;
+
+  /* Soften hot semantic states slightly on light backgrounds */
+  --state-success-bg: rgba(34, 197, 94, 0.10);
+  --state-warning-bg: rgba(245, 158, 11, 0.10);
+  --state-danger-bg: rgba(239, 68, 68, 0.10);
+  --state-info-bg: rgba(59, 130, 246, 0.10);
+
+  --overlay-bg: rgba(247, 249, 253, 0.9);
+  --overlay-opacity: 0.8;
+  --overlay-border: rgba(59, 130, 246, 0.13);
+  --overlay-border-soft: rgba(59, 130, 246, 0.08);
+  --overlay-panel-bg: rgba(247, 249, 253, 0.9);
+  --overlay-pill-bg: rgba(255, 255, 255, 0.86);
+  --overlay-transcript-bg: rgba(255, 255, 255, 0.46);
+  --overlay-chip-bg: rgba(248, 250, 253, 0.86);
+  --overlay-chip-hover-bg: rgba(241, 246, 252, 0.94);
+  --overlay-input-bg: rgba(255, 255, 255, 0.92);
+  --overlay-input-hover-bg: rgba(252, 253, 255, 0.97);
+  --overlay-input-focus-bg: rgba(255, 255, 255, 0.99);
+  --overlay-control-bg: rgba(248, 250, 253, 0.88);
+  --overlay-control-hover-bg: rgba(241, 246, 252, 0.95);
+  --overlay-code-bg: rgba(242, 246, 252, 0.92);
+  --overlay-code-border: rgba(59, 130, 246, 0.11);
+  --overlay-code-header-bg: rgba(234, 240, 249, 0.95);
+  --overlay-inline-code-bg: rgba(59, 130, 246, 0.09);
+  --overlay-icon-bg: rgba(248, 250, 253, 0.84);
+  --overlay-icon-hover-bg: rgba(241, 246, 252, 0.93);
+  --overlay-panel-shadow: rgba(15, 23, 42, 0.10);
+  --overlay-pill-shadow: rgba(15, 23, 42, 0.07);
+  --overlay-text-primary: rgba(15, 23, 42, 0.97);
+  --overlay-text-secondary: rgba(30, 41, 59, 0.86);
+  --overlay-text-muted: rgba(51, 65, 85, 0.74);
+  --overlay-text-placeholder: rgba(71, 85, 105, 0.6);
+  --overlay-text-strong: #020617;
+  --overlay-shell-blur: 16px;
+  --overlay-pill-blur: 10px;
+  --overlay-transcript-blur: 6px;
+}
+
+/* Light mode: liquid-glass — clean frosted white panel */
+[data-theme='light'] .liquid-glass {
+  background: rgba(255, 255, 255, 0.80);
+  border: 1px solid rgba(0, 0, 0, 0.07);
+  box-shadow:
+    0 4px 24px rgba(0, 0, 0, 0.06),
+    0 1px 4px rgba(0, 0, 0, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 1.0);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+}
+
+/* ─── Light mode elevation system ────────────────────────────────────────
+   Top product designers (Linear, Vercel, Stripe) separate surfaces with
+   SHADOW — not borders. This creates depth without visual clutter.
+   ─────────────────────────────────────────────────────────────────────── */
+
+/* Level 1 — Cards sitting on the canvas */
+[data-theme='light'] .bg-bg-card {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+/* Level 2 — Modals, panels, settings wrapper */
+[data-theme='light'] #settings-panel-wrapper {
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.10),
+    0 6px 16px rgba(0, 0, 0, 0.06),
+    0 0 0 1px rgba(0, 0, 0, 0.05);
+}
+
+/* Level 3 — Dropdowns (override shadow-2xl in light mode) */
+[data-theme='light'] .shadow-2xl {
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.09),
+    0 2px 8px rgba(0, 0, 0, 0.05),
+    0 0 0 1px rgba(0, 0, 0, 0.05) !important;
+}
+
+/* Sidebar border — very subtle rule separating white sidebar from gray canvas */
+[data-theme='light'] .border-r.border-border-subtle {
+  border-right-color: rgba(0, 0, 0, 0.07);
+}
+
+/* App sizing baseline (required for h-full / flex scroll areas) */
+html,
+body,
+#root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  background: var(--surface) !important;
+  color: var(--text-primary);
+  font-family: var(--font-system);
+  font-feature-settings: "tnum" 1, "ss01" 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Allow selection in specific areas if needed */
+.selectable {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+body {
+  margin: 0;
+  background: var(--surface);
+  color: var(--text-primary);
+  line-height: 1.6;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+}
+
+label,
+[data-ui-label],
+.text-label {
+  font-family: var(--font-display);
+  font-size: 0.6875rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+code,
+pre,
+kbd,
+samp,
+input,
+textarea,
+[data-mono],
+.timestamp,
+.time,
+.metric,
+.numeric {
+  font-family: var(--font-mono);
+}
+
+/* Scrollbar Styling — Hidden by default, reveal on hover/focus (macOS-native feel) */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  transition: background-color var(--motion-base) ease;
+}
+
+*:hover > ::-webkit-scrollbar-thumb,
+*:focus-within > ::-webkit-scrollbar-thumb,
+:hover::-webkit-scrollbar-thumb {
+  background-color: rgba(145, 153, 188, 0.35);
+  background-clip: padding-box;
+}
+
+[data-theme='light'] :hover::-webkit-scrollbar-thumb {
+  background-color: rgba(15, 23, 42, 0.22);
+  background-clip: padding-box;
+}
+
+/* Hide scrollbars entirely for explicit opt-outs (e.g. transcript stealth) */
+.scrollbar-none::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+/* Explicit scroll container — guarantees the hover-revealed thumb regardless of
+   parent hover state. Used by long lists, transcripts, chat panels. */
+.custom-scrollbar {
+  scrollbar-gutter: stable;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgba(145, 153, 188, 0.0);
+  border: 2px solid transparent;
+  border-radius: 9999px;
+  background-clip: padding-box;
+  transition: background-color var(--motion-base) ease;
+}
+
+.custom-scrollbar:hover::-webkit-scrollbar-thumb,
+.custom-scrollbar:focus-within::-webkit-scrollbar-thumb,
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(145, 153, 188, 0.45);
+  background-clip: padding-box;
+}
+
+[data-theme='light'] .custom-scrollbar:hover::-webkit-scrollbar-thumb,
+[data-theme='light'] .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(15, 23, 42, 0.28);
+  background-clip: padding-box;
+}
+
+/* Liquid Glass Effect Base - Professional Monospace Utility */
+.liquid-glass {
+  background: var(--surface-variant);
+  backdrop-filter: blur(20px) saturate(145%);
+  -webkit-backdrop-filter: blur(20px) saturate(145%);
+  border: 1px solid var(--outline-variant);
+  border-radius: 0.75rem;
+  box-shadow:
+    0 24px 40px rgba(168, 200, 255, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  position: relative;
+  overflow: hidden;
+}
+
+.overlay-shell-surface {
+  /* backgroundColor/border/boxShadow come from inline appearance styles so the
+     Interface Opacity slider can change transparency. Keep only blur defaults here. */
+  backdrop-filter: blur(var(--overlay-shell-blur)) saturate(138%);
+  -webkit-backdrop-filter: blur(var(--overlay-shell-blur)) saturate(138%);
+}
+
+.overlay-shell-surface,
+.overlay-pill-surface,
+.overlay-subtle-surface,
+.overlay-chip-surface,
+.overlay-input-surface,
+.overlay-control-surface,
+.overlay-code-block-surface,
+.overlay-code-header-surface,
+.overlay-icon-surface {
+  color: var(--overlay-text-primary);
+}
+
+[data-theme='light'] .overlay-shell-surface {
+  backdrop-filter: blur(var(--overlay-shell-blur)) saturate(145%);
+  -webkit-backdrop-filter: blur(var(--overlay-shell-blur)) saturate(145%);
+}
+
+.overlay-pill-surface {
+  background: var(--overlay-pill-bg);
+  border-color: var(--overlay-border);
+  box-shadow: 0 16px 28px var(--overlay-pill-shadow);
+  backdrop-filter: blur(var(--overlay-pill-blur)) saturate(134%);
+  -webkit-backdrop-filter: blur(var(--overlay-pill-blur)) saturate(134%);
+}
+
+[data-theme='light'] .overlay-pill-surface {
+  backdrop-filter: blur(var(--overlay-pill-blur)) saturate(140%);
+  -webkit-backdrop-filter: blur(var(--overlay-pill-blur)) saturate(140%);
+}
+
+.overlay-transcript-surface {
+  background: var(--overlay-transcript-bg);
+  border-bottom-color: transparent;
+}
+
+.overlay-subtle-surface {
+  background: var(--overlay-chip-bg);
+  border-color: var(--overlay-border-soft);
+}
+
+.overlay-code-block-surface {
+  background: var(--overlay-code-bg);
+  border-color: var(--overlay-code-border);
+}
+
+.overlay-code-header-surface {
+  background: var(--overlay-code-header-bg);
+  border-bottom-color: var(--overlay-code-border);
+}
+
+.overlay-chip-surface {
+  background: var(--overlay-chip-bg);
+  border-color: var(--overlay-border-soft);
+}
+
+.overlay-chip-surface:hover {
+  background: var(--overlay-chip-hover-bg);
+  border-color: var(--overlay-border-soft);
+}
+
+.overlay-input-surface {
+  background: var(--overlay-input-bg);
+  border-color: var(--overlay-border-soft);
+}
+
+.overlay-input-surface:hover {
+  background: var(--overlay-input-hover-bg);
+}
+
+.overlay-input-surface:focus {
+  background: var(--overlay-input-focus-bg);
+  border-color: var(--overlay-border);
+}
+
+.overlay-control-surface {
+  background: var(--overlay-control-bg);
+  border-color: var(--overlay-border);
+}
+
+.overlay-control-surface:hover {
+  background: var(--overlay-control-hover-bg);
+}
+
+.overlay-icon-surface {
+  background: var(--overlay-icon-bg);
+}
+
+.overlay-icon-surface-hover:hover {
+  background: var(--overlay-icon-hover-bg);
+}
+
+.overlay-inline-code-surface {
+  background: var(--overlay-inline-code-bg);
+}
+
+.overlay-text-primary {
+  color: var(--overlay-text-primary);
+}
+
+.overlay-text-secondary {
+  color: var(--overlay-text-secondary);
+}
+
+.overlay-text-muted {
+  color: var(--overlay-text-muted);
+}
+
+.overlay-text-strong {
+  color: var(--overlay-text-strong);
+}
+
+.overlay-text-interactive {
+  color: var(--overlay-text-primary);
+}
+
+.overlay-text-interactive:hover {
+  color: var(--overlay-text-primary);
+}
+
+.overlay-input-text {
+  color: var(--overlay-text-primary);
+}
+
+.overlay-input-text::placeholder {
+  color: var(--overlay-text-placeholder);
+}
+
+/* Interaction Utilities - Reusable */
+.interaction-base {
+  transition-property: transform, opacity, background-color, border-color, color;
+  transition-duration: 200ms;
+  transition-timing-function: cubic-bezier(0.25, 1, 0.5, 1);
+  backface-visibility: hidden;
+}
+
+.interaction-hover:hover {
+  transform: translateY(-0.5px);
+}
+
+.interaction-press:active {
+  transform: scale(0.97);
+  opacity: 0.9;
+}
+
+/* Electron Stability - Drag Regions */
+/* Title bar area usually */
+.titlebar-drag-region {
+  -webkit-app-region: drag;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 38px;
+  /* Standard macOS titlebar height */
+  z-index: 9999;
+  cursor: default;
+}
+
+.draggable-area {
+  -webkit-app-region: drag;
+  position: relative;
+  z-index: 50;
+  cursor: default;
+}
+
+/* Visual cue only — real click-through is setIgnoreMouseEvents(true) in main. */
+html.overlay-passthrough .overlay-shell-surface,
+html.overlay-passthrough .overlay-pill-surface {
+  outline: 1px dashed rgba(96, 165, 250, 0.35);
+}
+
+.drag-region {
+  -webkit-app-region: drag;
+}
+
+/* Make sure buttons and interactive elements are not draggable */
+button,
+input,
+select,
+textarea,
+.interactive,
+.no-drag,
+[role="button"],
+a {
+  -webkit-app-region: no-drag;
+  cursor: default !important;
+}
+
+/* Explicit cursor class when pointer is explicitly needed */
+.cursor-pointer {
+  cursor: pointer;
+}
+
+/* Utilities for sidebar layout */
+.app-sidebar {
+  background: color-mix(in srgb, var(--surface-container-low) 88%, transparent);
+  backdrop-filter: blur(12px) saturate(130%);
+  -webkit-backdrop-filter: blur(12px) saturate(130%);
+  border-right: 1px solid var(--outline-variant);
+}
+
+[data-theme='light'] .app-sidebar {
+  background: color-mix(in srgb, var(--surface-container-low) 88%, transparent);
+  backdrop-filter: blur(12px) saturate(130%);
+  -webkit-backdrop-filter: blur(12px) saturate(130%);
+  border-right: 1px solid var(--outline-variant);
+}
+
+.app-content {
+  background: var(--surface);
+}
+
+@keyframes shine {
+  0% {
+    transform: translateX(-100%) skewX(-12deg);
+  }
+
+  100% {
+    transform: translateX(200%) skewX(-12deg);
+  }
+}
+
+.animate-shine {
+  animation: shine 2s infinite;
+}
+
+/* Force instant transitions globally during previews */
+.disable-transitions, .disable-transitions * {
+  transition: none !important;
+}
+
+/* ── Windows / Linux window chrome – rounded corners ──────────────────────────
+   Using positive selectors (not :not()) avoids a brief border-radius flash on
+   macOS during cold-start, before the data-platform attribute is set.
+   ─────────────────────────────────────────────────────────────────────────── */
+html[data-platform="win32"] body,
+html[data-platform="linux"] body {
+  border-radius: 0.75rem !important;
+  overflow: hidden;
+}
+
+/* ─── Accessibility: visible keyboard focus ──────────────────────────────
+   Components widely use `focus:outline-none` for visual cleanliness.
+   This rule re-asserts a focus indicator for keyboard users only via
+   :focus-visible, which mouse clicks don't trigger.
+   ─────────────────────────────────────────────────────────────────────── */
+:where(button, a, [role="button"], [role="tab"], [role="menuitem"],
+       [role="option"], input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+  border-radius: inherit;
+}
+
+/* Within liquid-glass / overlay surfaces, use a softer ring that reads on blur */
+.overlay-shell-surface :where(button, a, [role="button"], [role="tab"],
+       input, [tabindex]):focus-visible,
+.overlay-pill-surface :where(button, a, [role="button"], [role="tab"],
+       input, [tabindex]):focus-visible {
+  outline-color: var(--overlay-text-strong);
+  outline-offset: 2px;
+}
+
+/* ─── Reduced motion ──────────────────────────────────────────────────────
+   Respect users with vestibular disorders or who disable system animations.
+   Keeps essential opacity transitions but kills movement.
+   ─────────────────────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* Keep focus indicator transitions instant rather than removed entirely */
+  *:focus-visible {
+    transition: outline-color 0.001ms !important;
+  }
+}
+
+/* ─── Semantic state utility classes ──────────────────────────────────────
+   Allow `bg-state-danger` / `text-state-success` etc. to flow from CSS vars
+   so theme-switching just works.
+   ─────────────────────────────────────────────────────────────────────── */
+.bg-state-success { background-color: var(--state-success); }
+.bg-state-success-soft { background-color: var(--state-success-bg); }
+.bg-state-warning { background-color: var(--state-warning); }
+.bg-state-warning-soft { background-color: var(--state-warning-bg); }
+.bg-state-danger { background-color: var(--state-danger); }
+.bg-state-danger-soft { background-color: var(--state-danger-bg); }
+.bg-state-info { background-color: var(--state-info); }
+.bg-state-info-soft { background-color: var(--state-info-bg); }
+
+.text-state-success { color: var(--state-success); }
+.text-state-success-strong { color: var(--state-success-strong); }
+.text-state-warning { color: var(--state-warning); }
+.text-state-warning-strong { color: var(--state-warning-strong); }
+.text-state-danger { color: var(--state-danger); }
+.text-state-danger-strong { color: var(--state-danger-strong); }
+.text-state-info { color: var(--state-info); }
+
+.border-state-success { border-color: var(--state-success-border); }
+.border-state-warning { border-color: var(--state-warning-border); }
+.border-state-danger { border-color: var(--state-danger-border); }
+.border-state-info { border-color: var(--state-info-border); }

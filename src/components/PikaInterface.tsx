@@ -1,0 +1,136 @@
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import TopPill from './ui/TopPill';
+import ChatColumn from './meeting/ChatColumn';
+import SplitterShell from './meeting/SplitterShell';
+import TranscriptColumn from './meeting/TranscriptColumn';
+import { analytics } from '../lib/analytics/analytics.service';
+import { useShortcuts } from '../hooks/useShortcuts';
+import { useResolvedTheme } from '../hooks/useResolvedTheme';
+import { getDefaultOverlayOpacity, getOverlayAppearance } from '../lib/overlayAppearance';
+import { useMeetingChat, type Message } from '../hooks/useMeetingChat';
+import { useMeetingTranscript } from '../hooks/useMeetingTranscript';
+import { useMeetingAudio } from '../hooks/useMeetingAudio';
+import { useOverlayPassthroughHitTest } from '../hooks/useOverlayPassthroughHitTest';
+
+interface PikaInterfaceProps { onEndMeeting?: () => void; overlayOpacity?: number; }
+type ScreenshotAttachment = { path: string; preview: string };
+type CommandHandlers = { handleWhatToSay: () => void; handleFollowUp: (intent?: string) => void; handleFollowUpQuestions: () => void; handleRecap: () => void; handleAnswerNow: () => void; handleClarify: () => void; handleCodeHint: () => void; handleBrainstorm: () => void; };
+type GeneralHandlers = { toggleVisibility: () => void; processScreenshots: () => void; resetCancel: () => Promise<void>; toggleMousePassthrough: () => void; takeScreenshot: () => Promise<void>; selectiveScreenshot: () => Promise<void>; };
+
+const PikaInterface: React.FC<PikaInterfaceProps> = ({ onEndMeeting, overlayOpacity = getDefaultOverlayOpacity() }) => {
+    const isLightTheme = useResolvedTheme() === 'light';
+    const [isExpanded, setIsExpanded] = useState(true);
+    const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+    const [splitterPosition, setSplitterPosition] = useState(() => { const parsed = Number(localStorage.getItem('pika_splitter_position') ?? 40); return Number.isFinite(parsed) ? Math.min(80, Math.max(20, parsed)) : 40; });
+    const [isMousePassthrough, setIsMousePassthrough] = useState(false);
+    const [isUndetectable, setIsUndetectable] = useState(false);
+    const [currentModel, setCurrentModel] = useState('gemini-3-flash-preview');
+    const isStealthRef = useRef(false);
+    const messagesEndRef = useRef<HTMLDivElement>(null);
+    const contentRef = useRef<HTMLDivElement>(null);
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
+    const textInputRef = useRef<HTMLInputElement>(null);
+    const { shortcuts, isShortcutPressed } = useShortcuts();
+    const transcript = useMeetingTranscript();
+    const audio = useMeetingAudio();
+    const chat = useMeetingChat();
+    const appearance = useMemo(() => getOverlayAppearance(overlayOpacity, isLightTheme ? 'light' : 'dark'), [overlayOpacity, isLightTheme]);
+
+    useEffect(() => localStorage.setItem('pika_splitter_position', String(splitterPosition)), [splitterPosition]);
+    useEffect(() => { window.electronAPI?.getDefaultModel?.().then((result: any) => { if (result?.model) { setCurrentModel(result.model); window.electronAPI.setModel(result.model).catch(() => {}); } }).catch((err: any) => console.error('Failed to fetch default model:', err)); }, []);
+    useEffect(() => { const unsubscribe = window.electronAPI?.onModelChanged?.((modelId: string) => setCurrentModel((prev) => (prev === modelId ? prev : modelId))); return () => unsubscribe?.(); }, []);
+    useEffect(() => { window.electronAPI?.getUndetectable?.().then(setIsUndetectable); const unsubscribe = window.electronAPI?.onUndetectableChanged?.(setIsUndetectable); return () => unsubscribe?.(); }, []);
+    useEffect(() => localStorage.setItem('pika_undetectable', String(isUndetectable)), [isUndetectable]);
+    useEffect(() => { window.electronAPI?.getOverlayMousePassthrough?.().then(setIsMousePassthrough).catch(() => {}); const unsubscribe = window.electronAPI?.onOverlayMousePassthroughChanged?.(setIsMousePassthrough); return () => unsubscribe?.(); }, []);
+    useOverlayPassthroughHitTest(isMousePassthrough);
+    useEffect(() => window.electronAPI?.onSettingsVisibilityChange?.(setIsSettingsOpen), []);
+    useEffect(() => { if (isExpanded) { window.electronAPI.showWindow(isStealthRef.current); isStealthRef.current = false; } else setTimeout(() => window.electronAPI.hideWindow(), 400); }, [isExpanded]);
+    useEffect(() => window.electronAPI?.onToggleExpand?.(() => setIsExpanded((prev) => !prev)), []);
+    useEffect(() => window.electronAPI?.onEnsureExpanded?.(() => { isStealthRef.current = true; setIsExpanded(true); }), []);
+    useEffect(() => window.electronAPI?.onSessionReset?.(() => { console.log('[PikaInterface] Resetting session state...'); chat.setSystemMessages([]); chat.setInputValue(''); chat.setAttachedContext([]); audio.setManualTranscript(''); audio.setVoiceInput(''); chat.setIsProcessing(false); analytics.trackConversationStarted(); }), [chat.setSystemMessages, chat.setInputValue, chat.setAttachedContext, audio.setManualTranscript, audio.setVoiceInput, chat.setIsProcessing]);
+
+    const handleScreenshotAttach = useCallback((data: ScreenshotAttachment) => { setIsExpanded(true); chat.setAttachedContext((prev) => (prev.some((s) => s.path === data.path) ? prev : [...prev, data].slice(-5))); }, [chat.setAttachedContext]);
+    const updateContentDimensions = useCallback(() => {
+        if (isExpanded) return;
+        const rect = contentRef.current?.getBoundingClientRect();
+        if (rect) window.electronAPI?.updateContentDimensions({ width: Math.ceil(rect.width), height: Math.ceil(rect.height) });
+    }, [isExpanded]);
+    useLayoutEffect(() => { if (!contentRef.current) return; const observer = new ResizeObserver(updateContentDimensions); observer.observe(contentRef.current); return () => observer.disconnect(); }, [updateContentDimensions]);
+    useEffect(() => { requestAnimationFrame(updateContentDimensions); }, [chat.attachedContext, updateContentDimensions]);
+    useEffect(() => { const timer = setTimeout(updateContentDimensions, 600); return () => clearTimeout(timer); }, [updateContentDimensions]);
+    useEffect(() => {
+        if (!isExpanded) return;
+        const el = scrollContainerRef.current;
+        if (!el) return;
+        // Instant, container-scoped scroll — avoid scrollIntoView smooth (jerks the overlay while streaming)
+        el.scrollTop = el.scrollHeight;
+    }, [chat.messages, isExpanded, chat.isProcessing]);
+
+    const handleAnswerNow = useCallback(() => chat.handleWhatToSay(), [chat.handleWhatToSay]);
+
+    const handlersRef = useRef<CommandHandlers>(null!);
+    handlersRef.current = { handleWhatToSay: chat.handleWhatToSay, handleFollowUp: chat.handleFollowUp, handleFollowUpQuestions: chat.handleFollowUpQuestions, handleRecap: chat.handleRecap, handleAnswerNow, handleClarify: chat.handleClarify, handleCodeHint: chat.handleCodeHint, handleBrainstorm: chat.handleBrainstorm };
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            const h = handlersRef.current;
+            if (isShortcutPressed(e, 'whatToAnswer')) { e.preventDefault(); h.handleWhatToSay(); } else if (isShortcutPressed(e, 'clarify')) { e.preventDefault(); h.handleClarify(); } else if (isShortcutPressed(e, 'followUp')) { e.preventDefault(); h.handleFollowUpQuestions(); }
+            else if (isShortcutPressed(e, 'dynamicAction4')) { e.preventDefault(); chat.actionButtonMode === 'brainstorm' ? h.handleBrainstorm() : h.handleRecap(); } else if (isShortcutPressed(e, 'answer')) { e.preventDefault(); h.handleAnswerNow(); } else if (isShortcutPressed(e, 'codeHint')) { e.preventDefault(); h.handleCodeHint(); }
+            else if (isShortcutPressed(e, 'brainstorm')) { e.preventDefault(); h.handleBrainstorm(); } else if (isShortcutPressed(e, 'scrollUp')) { e.preventDefault(); scrollContainerRef.current?.scrollBy({ top: -100, behavior: 'smooth' }); } else if (isShortcutPressed(e, 'scrollDown')) { e.preventDefault(); scrollContainerRef.current?.scrollBy({ top: 100, behavior: 'smooth' }); }
+            else if (isShortcutPressed(e, 'moveWindowUp') || isShortcutPressed(e, 'moveWindowDown')) e.preventDefault();
+        };
+        window.addEventListener('keydown', handleKeyDown); return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isShortcutPressed, chat.actionButtonMode]);
+
+    const generalHandlersRef = useRef<GeneralHandlers>(null!);
+    generalHandlersRef.current = {
+        toggleVisibility: () => window.electronAPI.toggleWindow(), processScreenshots: chat.handleWhatToSay,
+        resetCancel: async () => { if (chat.isProcessing) chat.setIsProcessing(false); else { await window.electronAPI.resetIntelligence(); chat.setSystemMessages([]); chat.setAttachedContext([]); chat.setInputValue(''); } },
+        toggleMousePassthrough: () => { const next = !isMousePassthrough; setIsMousePassthrough(next); window.electronAPI?.setOverlayMousePassthrough?.(next); },
+        takeScreenshot: async () => { const data = await window.electronAPI.takeScreenshot().catch((err) => console.error('Error triggering screenshot:', err)); if (data?.path) handleScreenshotAttach(data as ScreenshotAttachment); },
+        selectiveScreenshot: async () => { const data = await window.electronAPI.takeSelectiveScreenshot().catch((err) => console.error('Error triggering selective screenshot:', err)); if (data && !data.cancelled && data.path) handleScreenshotAttach(data as ScreenshotAttachment); },
+    };
+    useEffect(() => {
+        const handleGeneralKeyDown = (e: KeyboardEvent) => {
+            const target = e.target as HTMLElement; const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable; const h = generalHandlersRef.current;
+            if (isShortcutPressed(e, 'toggleVisibility')) { e.preventDefault(); h.toggleVisibility(); } else if (isShortcutPressed(e, 'processScreenshots') && !isInput) { e.preventDefault(); h.processScreenshots(); } else if (isShortcutPressed(e, 'resetCancel')) { e.preventDefault(); h.resetCancel(); }
+            else if (isShortcutPressed(e, 'takeScreenshot')) { e.preventDefault(); h.takeScreenshot(); } else if (isShortcutPressed(e, 'selectiveScreenshot')) { e.preventDefault(); h.selectiveScreenshot(); } else if (isShortcutPressed(e, 'toggleMousePassthrough')) { e.preventDefault(); h.toggleMousePassthrough(); }
+        };
+        window.addEventListener('keydown', handleGeneralKeyDown); return () => window.removeEventListener('keydown', handleGeneralKeyDown);
+    }, [isShortcutPressed]);
+
+    useEffect(() => window.electronAPI.onCaptureAndProcess?.((data) => { handleScreenshotAttach(data as ScreenshotAttachment); setTimeout(() => handlersRef.current.handleWhatToSay(), 0); }), [handleScreenshotAttach]);
+    useEffect(() => { const cleanups = [window.electronAPI.onScreenshotTaken(handleScreenshotAttach)]; const attachedCleanup = window.electronAPI.onScreenshotAttached?.(handleScreenshotAttach); if (attachedCleanup) cleanups.push(attachedCleanup); return () => cleanups.forEach((fn) => fn()); }, [handleScreenshotAttach]);
+    useEffect(() => window.electronAPI.onSuggestionProcessingStart?.(() => { chat.setIsProcessing(true); setIsExpanded(true); }), [chat.setIsProcessing]);
+    useEffect(() => window.electronAPI.onGlobalShortcut?.(({ action }) => {
+        const h = handlersRef.current; const g = generalHandlersRef.current; isStealthRef.current = true;
+        if (action === 'whatToAnswer') h.handleWhatToSay(); else if (action === 'shorten') h.handleFollowUp('shorten'); else if (action === 'followUp') h.handleFollowUpQuestions(); else if (action === 'recap') h.handleRecap(); else if (action === 'dynamicAction4') chat.actionButtonMode === 'brainstorm' ? h.handleBrainstorm() : h.handleRecap();
+        else if (action === 'answer') h.handleAnswerNow(); else if (action === 'clarify') h.handleClarify(); else if (action === 'codeHint') h.handleCodeHint(); else if (action === 'brainstorm') h.handleBrainstorm(); else if (action === 'scrollUp') scrollContainerRef.current?.scrollBy({ top: -100, behavior: 'smooth' }); else if (action === 'scrollDown') scrollContainerRef.current?.scrollBy({ top: 100, behavior: 'smooth' });
+        else if (action === 'processScreenshots') g.processScreenshots(); else if (action === 'resetCancel') g.resetCancel();
+        setTimeout(() => { isStealthRef.current = false; }, 500);
+    }), [chat.actionButtonMode]);
+
+    const setMessages = useCallback((updater: React.SetStateAction<Message[]>) => { chat.setSystemMessages((prev) => (typeof updater === 'function' ? (updater as (p: Message[]) => Message[])(prev) : updater)); }, [chat.setSystemMessages]);
+    const transcriptProps = { ...transcript, ...audio, appearance, isLightTheme };
+    const chatProps = { messages: chat.messages, knowledgeContext: chat.knowledgeContext, attachedContext: chat.attachedContext, setAttachedContext: chat.setAttachedContext, actionButtonMode: chat.actionButtonMode, inputValue: chat.inputValue, setInputValue: chat.setInputValue, isProcessing: chat.isProcessing, handleWhatToSay: chat.handleWhatToSay, handleClarify: chat.handleClarify, handleFollowUpQuestions: chat.handleFollowUpQuestions, handleRecap: chat.handleRecap, handleBrainstorm: chat.handleBrainstorm, handleAnswerNow, handleManualSubmit: chat.handleManualSubmit, isManualRecording: audio.isManualRecording, manualTranscript: audio.manualTranscript, voiceInput: audio.voiceInput, appearance, isLightTheme, currentModel, isSettingsOpen, isMousePassthrough, setIsMousePassthrough, shortcuts, scrollContainerRef, messagesEndRef, textInputRef, contentRef, setMessages };
+
+    return (
+        <div ref={contentRef} className={`flex flex-col items-center w-full mx-auto ${isExpanded ? 'h-screen' : 'h-fit'} min-h-0 bg-transparent p-0 rounded-[24px] font-sans gap-2 overlay-text-primary`}>
+            <AnimatePresence>
+                {isExpanded && (
+                    <motion.div initial={{ opacity: 0, y: 20, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 20, scale: 0.95 }} transition={{ duration: 0.3, ease: 'easeInOut' }} className="flex flex-col items-center gap-2 w-full flex-1 min-h-0">
+                        <TopPill expanded={isExpanded} onToggle={() => setIsExpanded((prev) => !prev)} onQuit={() => (onEndMeeting ? onEndMeeting() : window.electronAPI.quitApp())} appearance={appearance} />
+                        {isMousePassthrough && (
+                            <div className="pointer-events-none select-none rounded-full px-3 py-1 text-[11px] font-medium tracking-wide text-sky-100/95 bg-sky-500/25 border border-sky-400/35">
+                                Mouse passthrough · clicks go below · Ctrl+Shift+B to exit · Ctrl+1 answer
+                            </div>
+                        )}
+                        <SplitterShell left={<TranscriptColumn {...transcriptProps} />} right={<ChatColumn {...chatProps} />} splitterPosition={splitterPosition} onSplitterChange={setSplitterPosition} isExpanded={isExpanded} appearance={appearance} overlayPanelClass="overlay-text-primary" />
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>
+    );
+};
+
+export default PikaInterface;

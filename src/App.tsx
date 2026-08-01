@@ -1,0 +1,335 @@
+import React, { useState, useEffect } from "react" // forcing refresh
+import { QueryClient, QueryClientProvider } from "react-query"
+import { ToastProvider, ToastViewport } from "./components/ui/toast"
+import PikaInterface from "./components/PikaInterface"
+import SettingsPopup from "./components/SettingsPopup" // Keeping for legacy/specific window support if needed
+import Launcher from "./components/Launcher"
+import ModelSelectorWindow from "./components/ModelSelectorWindow"
+import SettingsOverlay from "./components/SettingsOverlay"
+import StartupSequence from "./components/StartupSequence"
+import { AnimatePresence, motion } from "framer-motion"
+import UpdateBanner from "./components/UpdateBanner"
+import { clampOverlayOpacity, getDefaultOverlayOpacity } from "./lib/overlayAppearance"
+import { analytics } from "./lib/analytics/analytics.service"
+import { ErrorBoundary } from "./components/ErrorBoundary"
+
+const queryClient = new QueryClient()
+
+const App: React.FC = () => {
+  const isSettingsWindow = new URLSearchParams(window.location.search).get('window') === 'settings';
+  const isLauncherWindow = new URLSearchParams(window.location.search).get('window') === 'launcher';
+  const isOverlayWindow = new URLSearchParams(window.location.search).get('window') === 'overlay';
+  const isModelSelectorWindow = new URLSearchParams(window.location.search).get('window') === 'model-selector';
+  const isCropperWindow = new URLSearchParams(window.location.search).get('window') === 'cropper';
+
+  // Default to launcher if not specified (dev mode safety)
+  const isDefault = !isSettingsWindow && !isOverlayWindow && !isModelSelectorWindow && !isCropperWindow;
+
+  if (isCropperWindow) {
+    const Cropper = React.lazy(() => import('./components/Cropper'));
+    return (
+      <React.Suspense fallback={<div className="w-screen h-screen bg-transparent" />}>
+        <Cropper />
+      </React.Suspense>
+    );
+  }
+
+  // Initialize Analytics
+  useEffect(() => {
+    // Overlay window: html/body/#root all have `background: var(--surface) !important`
+    // in index.css. Must use setProperty with 'important' priority to override so the
+    // Electron transparent window shows through in areas outside the card.
+    if (isOverlayWindow) {
+      document.documentElement.style.setProperty('background', 'transparent', 'important');
+      document.body.style.setProperty('background', 'transparent', 'important');
+      const rootEl = document.getElementById('root');
+      if (rootEl) rootEl.style.setProperty('background', 'transparent', 'important');
+    }
+  }, [isOverlayWindow]);
+
+  useEffect(() => {
+    analytics.initAnalytics();
+
+    if (isLauncherWindow || isDefault) {
+      analytics.trackAppOpen();
+    }
+
+    if (isOverlayWindow) {
+      analytics.trackAssistantStart();
+    }
+
+    // Cleanup / Session End
+    const handleUnload = () => {
+      if (isOverlayWindow) {
+        analytics.trackAssistantStop();
+      }
+      if (isLauncherWindow || isDefault) {
+        analytics.trackAppClose();
+      }
+    };
+
+    window.addEventListener('beforeunload', handleUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleUnload);
+    };
+  }, [isLauncherWindow, isOverlayWindow, isDefault]);
+
+  // State
+  const [showStartup, setShowStartup] = useState(true);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [settingsInitialTab, setSettingsInitialTab] = useState('general');
+
+  // Overlay opacity — only meaningful when isOverlayWindow, but stored centrally
+  // so it can be initialized once from localStorage and updated via IPC.
+  const [overlayOpacity, setOverlayOpacity] = useState<number>(() => {
+    const stored = localStorage.getItem('pika_overlay_opacity');
+    const parsed = stored ? parseFloat(stored) : NaN;
+    // Treat missing value or the old default (0.65) as "not user-set"
+    const isUserSet = Number.isFinite(parsed) && parsed !== getDefaultOverlayOpacity();
+    return isUserSet ? clampOverlayOpacity(parsed) : getDefaultOverlayOpacity();
+  });
+
+  // Ollama Auto-Pull State
+  const [ollamaPullStatus, setOllamaPullStatus] = useState<'idle' | 'downloading' | 'complete' | 'failed'>('idle');
+  const [ollamaPullPercent, setOllamaPullPercent] = useState<number>(0);
+  const [ollamaPullMessage, setOllamaPullMessage] = useState<string>('');
+
+  useEffect(() => {
+    // Clean up old local storage
+    localStorage.removeItem('useLegacyAudioBackend');
+
+    // Listen for Ollama Auto-Pull Progress
+    let removeProgress: (() => void) | undefined;
+    let removeComplete: (() => void) | undefined;
+    if (window.electronAPI?.onOllamaPullProgress && window.electronAPI?.onOllamaPullComplete) {
+      removeProgress = window.electronAPI.onOllamaPullProgress((data) => {
+        setOllamaPullStatus('downloading');
+        setOllamaPullPercent(data.percent || 0);
+        setOllamaPullMessage(data.status || 'Downloading...');
+      });
+
+      removeComplete = window.electronAPI.onOllamaPullComplete(() => {
+        setOllamaPullStatus('complete');
+        setOllamaPullMessage('Local AI memory ready');
+        setOllamaPullPercent(100);
+        setTimeout(() => setOllamaPullStatus('idle'), 3000);
+      });
+    }
+
+    // Legacy warning event: reindex silently if an older main process still emits it
+    let removeWarning: (() => void) | undefined;
+    if (window.electronAPI?.onIncompatibleProviderWarning) {
+      removeWarning = window.electronAPI.onIncompatibleProviderWarning(() => {
+        void window.electronAPI?.reindexIncompatibleMeetings?.();
+      });
+    }
+
+    return () => {
+      if (removeProgress) removeProgress();
+      if (removeComplete) removeComplete();
+      if (removeWarning) removeWarning();
+    }
+  }, []);
+
+  // Listen for overlay opacity changes — scoped to overlay window only
+  useEffect(() => {
+    if (!isOverlayWindow) return;
+    const removeOpacityListener = window.electronAPI?.onOverlayOpacityChanged?.((opacity) => {
+      setOverlayOpacity(opacity);
+    });
+    return () => {
+      if (removeOpacityListener) removeOpacityListener();
+    };
+  }, [isOverlayWindow]);
+
+  // When the theme switches and no user preference is stored, reset to theme-aware default
+  useEffect(() => {
+    if (!isOverlayWindow || !window.electronAPI?.onThemeChanged) return;
+    return window.electronAPI.onThemeChanged(() => {
+      const stored = localStorage.getItem('pika_overlay_opacity');
+      if (!stored) {
+        setOverlayOpacity(getDefaultOverlayOpacity());
+      }
+    });
+  }, [isOverlayWindow]);
+
+
+  const handleStartMeeting = async () => {
+    try {
+      localStorage.setItem('pika_last_meeting_start', Date.now().toString());
+      const inputDeviceId = localStorage.getItem('preferredInputDeviceId');
+      let outputDeviceId = localStorage.getItem('preferredOutputDeviceId');
+      const useExperimentalSck = localStorage.getItem('useExperimentalSckBackend') === 'true';
+
+      // Override output device ID to force SCK if experimental mode is enabled
+      // Default to CoreAudio unless experimental is enabled
+      if (useExperimentalSck) {
+        console.log("[App] Using ScreenCaptureKit backend (Experimental).");
+        outputDeviceId = "sck";
+      } else {
+        console.log("[App] Using CoreAudio backend (Default).");
+      }
+
+      const result = await window.electronAPI.startMeeting({
+        audio: { inputDeviceId, outputDeviceId }
+      });
+      if (result.success) {
+        analytics.trackMeetingStarted();
+        // Switch to Overlay Mode via IPC
+        // The main process handles window switching, but we can reinforce it or just trust main.
+        // Actually, main process startMeeting triggers nothing UI-wise unless we tell it to switch window
+        // But we configured main.ts to not auto-switch?
+        // Let's explicitly request mode change.
+        await window.electronAPI.setWindowMode('overlay');
+      } else {
+        console.error("Failed to start meeting:", result.error);
+      }
+    } catch (err) {
+      console.error("Failed to start meeting:", err);
+    }
+  };
+
+  const handleEndMeeting = async () => {
+    console.log("[App.tsx] handleEndMeeting triggered");
+    analytics.trackMeetingEnded();
+    try {
+      await window.electronAPI.endMeeting();
+      console.log("[App.tsx] endMeeting IPC completed");
+      
+      const startStr = localStorage.getItem('pika_last_meeting_start');
+      if (startStr) {
+        const duration = Date.now() - parseInt(startStr, 10);
+        const threshold = import.meta.env.DEV ? 10000 : 180000;
+        if (duration >= threshold) {
+          localStorage.setItem('pika_show_profile_toaster', 'true');
+        }
+        localStorage.removeItem('pika_last_meeting_start');
+      }
+
+      // Switch back to Native Launcher Mode
+      // (Ad delay tracking moved to onMeetingsUpdated listener so ads wait for note generation to finish)
+      await window.electronAPI.setWindowMode('launcher');
+    } catch (err) {
+      console.error("Failed to end meeting:", err);
+      window.electronAPI.setWindowMode('launcher');
+    }
+  };
+
+  // Render Logic
+  if (isSettingsWindow) {
+    return (
+      <ErrorBoundary context="SettingsPopup">
+        <div className="h-full min-h-0 w-full">
+          <QueryClientProvider client={queryClient}>
+            <ToastProvider>
+              <SettingsPopup />
+              <ToastViewport />
+            </ToastProvider>
+          </QueryClientProvider>
+        </div>
+      </ErrorBoundary>
+    );
+  }
+
+  if (isModelSelectorWindow) {
+    return (
+      <ErrorBoundary context="ModelSelector">
+        <div className="h-full min-h-0 w-full overflow-hidden">
+          <QueryClientProvider client={queryClient}>
+            <ToastProvider>
+              <ModelSelectorWindow />
+              <ToastViewport />
+            </ToastProvider>
+          </QueryClientProvider>
+        </div>
+      </ErrorBoundary>
+    );
+  }
+
+  // --- OVERLAY WINDOW (Meeting Interface) ---
+  if (isOverlayWindow) {
+    return (
+      <ErrorBoundary context="Overlay">
+        <div className="w-full relative bg-transparent">
+          <QueryClientProvider client={queryClient}>
+            <ToastProvider>
+              <div
+                style={{
+                  ['--overlay-opacity' as '--overlay-opacity']: String(overlayOpacity),
+                  transition: 'background-color 75ms ease, border-color 75ms ease, box-shadow 75ms ease'
+                } as React.CSSProperties}
+              >
+                <PikaInterface
+                  onEndMeeting={handleEndMeeting}
+                  overlayOpacity={overlayOpacity}
+                />
+              </div>
+              <ToastViewport />
+            </ToastProvider>
+          </QueryClientProvider>
+        </div>
+      </ErrorBoundary>
+    );
+  }
+
+  // --- LAUNCHER WINDOW (Default) ---
+  // Renders if window=launcher OR no param
+  return (
+    <ErrorBoundary context="Launcher">
+    <div className="h-full min-h-0 w-full relative bg-[#000000]">
+      <AnimatePresence>
+        {showStartup ? (
+          <motion.div
+            key="startup"
+            initial={{ opacity: 1 }}
+            exit={{ opacity: 0, scale: 1.1, pointerEvents: "none", transition: { duration: 0.6, ease: "easeInOut" } }}
+          >
+            <StartupSequence onComplete={() => setShowStartup(false)} />
+          </motion.div>
+        ) : (
+          <motion.div
+            key="main"
+            className="h-full w-full"
+            initial={{ opacity: 0, scale: 0.98, y: 15 }} // "Linear" style entry: slightly down and scaled down
+            animate={{ opacity: 1, scale: 1, y: 0 }}      // Slide up and snap to place
+            transition={{
+              duration: 0.8,
+              ease: [0.19, 1, 0.22, 1], // Expo-out: snappy start, smooth landing
+              delay: 0.1
+            }}
+          >
+            <QueryClientProvider client={queryClient}>
+              <ToastProvider>
+                <div id="launcher-container" className="h-full w-full relative">
+                  <Launcher
+                    onStartMeeting={handleStartMeeting}
+                    onOpenSettings={(tab = 'general') => {
+                      setSettingsInitialTab(tab);
+                      setIsSettingsOpen(true);
+                    }}
+                    ollamaPullStatus={ollamaPullStatus}
+                    ollamaPullPercent={ollamaPullPercent}
+                    ollamaPullMessage={ollamaPullMessage}
+                  />
+                </div>
+                <SettingsOverlay
+                  isOpen={isSettingsOpen}
+                  onClose={() => {
+                    setIsSettingsOpen(false);
+                  }}
+                  initialTab={settingsInitialTab}
+                />
+                <ToastViewport />
+              </ToastProvider>
+            </QueryClientProvider>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <UpdateBanner />
+    </div>
+    </ErrorBoundary>
+  )
+}
+
+export default App
